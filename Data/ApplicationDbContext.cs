@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using InternalResourceBookingSystem.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace InternalResourceBookingSystem.Data
 {
@@ -8,6 +9,6 @@ namespace InternalResourceBookingSystem.Data
             : base(options)
         {
         }
-        
+        public DbSet<Resource> Resources { get; set; }
     }
 }
