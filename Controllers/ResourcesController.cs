@@ -1,28 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using InternalResourceBookingSystem.Models;
+using InternalResourceBookingSystem.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using InternalResourceBookingSystem.Data;
-using InternalResourceBookingSystem.Models;
 
 namespace InternalResourceBookingSystem.Controllers
 {
     public class ResourcesController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IResourceRepository _resourceRepository;
 
-        public ResourcesController(ApplicationDbContext context)
+        public ResourcesController(IResourceRepository resourceRepository)
         {
-            _context = context;
+            _resourceRepository = resourceRepository;
         }
 
         // GET: Resources
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Resources.ToListAsync());
+            return View(await _resourceRepository.GetAllAsync());
         }
 
         // GET: Resources/Details/5
@@ -33,9 +29,8 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var resource = await _context.Resources
-                .Include(r => r.Bookings)
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var resource = await _resourceRepository.GetByIdAsync(id.Value);
+
             if (resource == null)
             {
                 return NotFound();
@@ -51,30 +46,30 @@ namespace InternalResourceBookingSystem.Controllers
         }
 
         // GET: Resources/Create
-        public IActionResult Create(int? resourceId)
+        public async Task<IActionResult> Create(int? resourceId)
         {
+            var resources = await _resourceRepository.GetAllAsync();
+
             if (resourceId.HasValue)
             {
-                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", resourceId.Value);
+                ViewData["ResourceId"] = new SelectList(resources, "Id", "Name", resourceId.Value);
             }
             else
             {
-                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name");
+                ViewData["ResourceId"] = new SelectList(resources, "Id", "Name");
             }
                 return View();
         }
 
         // POST: Resources/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,Name,Description,Location,Capacity,IsAvailable")] Resource resource)
         {
             if (ModelState.IsValid)
             {
-                _context.Add(resource);
-                await _context.SaveChangesAsync();
+                await _resourceRepository.AddAsync(resource);
+
                 return RedirectToAction(nameof(Index));
             }
             return View(resource);
@@ -88,15 +83,12 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var resource = await _context.Resources.FindAsync(id);
-            if (resource == null)
-            {
-                return NotFound();
-            }
-            return View(resource);
+            return View(await _resourceRepository.GetAllAsync());
+
         }
 
         // POST: Resources/Edit/5
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Description,Location,Capacity,IsAvailable")] Resource resource)
@@ -110,12 +102,12 @@ namespace InternalResourceBookingSystem.Controllers
             {
                 try
                 {
-                    _context.Update(resource);
-                    await _context.SaveChangesAsync();
+                    await _resourceRepository.UpdateAsync(resource);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!ResourceExists(resource.Id))
+                    var exists = await _resourceRepository.GetByIdAsync(resource.Id);   
+                    if (exists == null) 
                     {
                         return NotFound();
                     }
@@ -124,8 +116,10 @@ namespace InternalResourceBookingSystem.Controllers
                         throw;
                     }
                 }
+
                 return RedirectToAction(nameof(Index));
             }
+
             return View(resource);
         }
 
@@ -137,8 +131,7 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var resource = await _context.Resources
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var resource = await _resourceRepository.GetByIdAsync(id.Value);
             if (resource == null)
             {
                 return NotFound();
@@ -151,21 +144,9 @@ namespace InternalResourceBookingSystem.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var resource = await _context.Resources.FindAsync(id);
-            if (resource != null)
-            {
-                _context.Resources.Remove(resource);
-                await _context.SaveChangesAsync();
-                TempData["ShowDeleteToast"] = true;
-            }
-           
+            await _resourceRepository.DeleteAsync(id);
+            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
-        }
-
-        private bool ResourceExists(int id)
-        {
-            return _context.Resources.Any(e => e.Id == id);
         }
     }
 }

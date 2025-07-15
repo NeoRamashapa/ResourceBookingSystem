@@ -12,9 +12,9 @@ namespace InternalResourceBookingSystem.Controllers
 {
     public class BookingsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IResourceRepository _context;
 
-        public BookingsController(ApplicationDbContext context)
+        public BookingsController(IResourceRepository context)
         {
             _context = context;
         }
@@ -65,26 +65,6 @@ namespace InternalResourceBookingSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,ResourceId,StartTime,EndTime,BookedBy,purpose")] Booking booking)
         {
-            //validations
-            var now = DateTime.Now;
-
-            //Cannot book for a past time
-            if (booking.StartTime < now)
-            {
-                ModelState.AddModelError("", "You cannot book a meeting room for a past time.");
-            }
-            //cannot book more than 5 days in advance.
-            if (booking.StartTime > now.AddDays(5))
-            {
-                ModelState.AddModelError("", "You cannot book a meeting room more than 5 days in advance.");
-            }
-
-            // Users must book at least 10 minutes in advance
-            if (booking.StartTime < now.AddMinutes(10))
-            {
-                ModelState.AddModelError("", "Bookings must be made at least 10 minutes in advance.");
-            }
-            //Ensuring that users end time is after start time
             if (booking.StartTime >= booking.EndTime)
             {
                 ModelState.AddModelError("", "End time must be after start time.");

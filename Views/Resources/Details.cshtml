@@ -67,9 +67,9 @@ if (Model.Bookings != null && Model.Bookings.Any())
             {
                 <tr>
                     <td>@booking.BookedBy</td>
-                    <td>@booking.StartTime.ToString("g")</td>
-                    <td>@booking.EndTime.ToString("g")</td>
-                    <td>@booking.purpose</td>
+                    <td>@booking.StartTime?.ToString("g")</td>
+                    <td>@booking.EndTime?.ToString("g")</td>
+                    <td>@booking.Purpose</td>
                 </tr>
             }
         </tbody>
