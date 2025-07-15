@@ -2,10 +2,13 @@
 
 @{
     ViewData["Title"] = "Booking Details";
+    var upcomingBookings = Model.Bookings?
+        .Where(b => b.StartTime > DateTime.Now)
+        .OrderBy(b => b.StartTime)
+        .ToList();
 }
 
 <h1>Booking Details</h1>
-
 
 <div>
     <h4>Resource</h4>
@@ -44,8 +47,11 @@
         </dd>
     </dl>
 </div>
+
 <h4>Upcoming bookings</h4>
-if(Model.Bookings != null && Model.Bookings.Any())
+
+@{
+if (Model.Bookings != null && Model.Bookings.Any())
 {
     <table class="table">
         <thead>
@@ -57,9 +63,7 @@ if(Model.Bookings != null && Model.Bookings.Any())
             </tr>
         </thead>
         <tbody>
-            @foreach (var booking in Model.Bookings
-				.Where(b => b.StartTime > DateTime.Now)
-				.OrderBy(b => b.StartTime))
+            @foreach (var booking in upcomingBookings)
             {
                 <tr>
                     <td>@booking.BookedBy</td>
@@ -74,7 +78,7 @@ if(Model.Bookings != null && Model.Bookings.Any())
 else
 {
     <p>No upcoming bookings.</p>
-})
+}}
 <div>
     <a asp-action="Edit" asp-route-id="@Model?.Id">Edit</a> |
     <a asp-action="Index">Back to List</a>

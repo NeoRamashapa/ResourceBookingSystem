@@ -41,6 +41,12 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
+            //Attempt to filter for upcoming bookings
+            resource.Bookings = resource.Bookings
+                .Where(b => b.StartTime > DateTime.Now)
+                .OrderBy(b => b.StartTime)
+                .ToList();
+
             return View(resource);
         }
 

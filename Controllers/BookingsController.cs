@@ -61,18 +61,36 @@ namespace InternalResourceBookingSystem.Controllers
         }
 
         // POST: Bookings/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,ResourceId,StartTime,EndTime,BookedBy,purpose")] Booking booking)
         {
+            //validations
+            var now = DateTime.Now;
+
+            //Cannot book for a past time
+            if (booking.StartTime < now)
+            {
+                ModelState.AddModelError("", "You cannot book a meeting room for a past time.");
+            }
+            //cannot book more than 5 days in advance.
+            if (booking.StartTime > now.AddDays(5))
+            {
+                ModelState.AddModelError("", "You cannot book a meeting room more than 5 days in advance.");
+            }
+
+            // Users must book at least 10 minutes in advance
+            if (booking.StartTime < now.AddMinutes(10))
+            {
+                ModelState.AddModelError("", "Bookings must be made at least 10 minutes in advance.");
+            }
+            //Ensuring that users end time is after start time
             if (booking.StartTime >= booking.EndTime)
             {
                 ModelState.AddModelError("", "End time must be after start time.");
             }
 
-            // Here I am checking if the booking overlaps with any existing bookings for the same resource
+            // Here I am checking if the booking overlaps with any existing bookings for the same meeting room
             bool bookingConflict = await _context.Bookings.AnyAsync(b =>
                 b.ResourceId == booking.ResourceId &&
                 b.Id != booking.Id &&
@@ -82,7 +100,7 @@ namespace InternalResourceBookingSystem.Controllers
             if (bookingConflict)
             {
                 ModelState.AddModelError("",
-                    "\"This resource is\r\nalready booked during the requested time. Please choose another\r\nslot or resource, or adjust your times.");
+                    "\"This Meeting room is\r\nalready booked during the requested time. Please choose another\r\nslot or meeting room, or adjust your times.");
             }
 
             // Here I am checking if the user has another booking during the same time for a different room
