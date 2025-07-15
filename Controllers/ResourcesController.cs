@@ -34,6 +34,7 @@ namespace InternalResourceBookingSystem.Controllers
             }
 
             var resource = await _context.Resources
+                .Include(r => r.Bookings)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (resource == null)
             {
@@ -44,9 +45,17 @@ namespace InternalResourceBookingSystem.Controllers
         }
 
         // GET: Resources/Create
-        public IActionResult Create()
+        public IActionResult Create(int? resourceId)
         {
-            return View();
+            if (resourceId.HasValue)
+            {
+                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", resourceId.Value);
+            }
+            else
+            {
+                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name");
+            }
+                return View();
         }
 
         // POST: Resources/Create

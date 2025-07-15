@@ -1,14 +1,16 @@
 ﻿@model InternalResourceBookingSystem.Models.Resource
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Booking Details";
 }
 
-<h1>Details</h1>
+<h1>Booking Details</h1>
+
 
 <div>
     <h4>Resource</h4>
     <hr />
+
     <dl class="row">
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Name)
@@ -42,7 +44,42 @@
         </dd>
     </dl>
 </div>
+<h4>Upcoming bookings</h4>
+if(Model.Bookings != null && Model.Bookings.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Booked By</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var booking in Model.Bookings
+				.Where(b => b.StartTime > DateTime.Now)
+				.OrderBy(b => b.StartTime))
+            {
+                <tr>
+                    <td>@booking.BookedBy</td>
+                    <td>@booking.StartTime.ToString("g")</td>
+                    <td>@booking.EndTime.ToString("g")</td>
+                    <td>@booking.purpose</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No upcoming bookings.</p>
+})
 <div>
     <a asp-action="Edit" asp-route-id="@Model?.Id">Edit</a> |
     <a asp-action="Index">Back to List</a>
+</div>
+<hr />
+<div>
+    <a asp-action="Create" asp-controller="Bookings" asp-route-resourceId="@Model.Id" class="btn btn-primary">Book This Room</a>
 </div>
