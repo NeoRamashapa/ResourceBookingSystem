@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Create";
+    var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm"); 
+
 }
 
 <h1>Create</h1>
@@ -40,6 +42,26 @@
                 <input type="submit" value="Create" class="btn btn-primary" />
             </div>
         </form>
+
+        <div class="modal fade" id="conflictModal" tabindex="-1" aria-labelledby="conflictModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="conflictModalLabel">Booking Conflict</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="conflictMessage">
+                            This room is already booked during the requested time. Please choose another slot.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -49,4 +71,29 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+            $('#createBookingForm').on('submit', function (e) {
+                e.preventDefault();
+                const form = $(this);
+                $.ajax({
+                    type: 'POST',
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function (response) {
+                        if (response.success) {
+                            window.location.href = response.redirectUrl;
+                        } else {
+                            $('#conflictMessage').text(response.message);
+                            const modal = new bootstrap.Modal(document.getElementById('conflictModal'));
+                            modal.show();
+                        }
+                    },
+                    error: function () {
+                        alert("An unexpected error occurred.");
+                    }
+                });
+            });
+        });
+    </script>
 }

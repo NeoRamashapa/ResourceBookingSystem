@@ -1,9 +1,11 @@
-﻿using InternalResourceBookingSystem.Models;
+﻿using InternalResourceBookingSystem.Data;
+using InternalResourceBookingSystem.Models;
 using InternalResourceBookingSystem.Repositories;
-using InternalResourceBookingSystem.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using static System.Collections.Specialized.BitVector32;
 
 namespace InternalResourceBookingSystem.Controllers
 {
@@ -23,6 +25,9 @@ namespace InternalResourceBookingSystem.Controllers
         public async Task<IActionResult> Index()
         {
             var bookings = await _bookingRepository.GetAllAsync();
+            var resources = await _resourceRepository.GetAllAsync();
+
+            ViewBag.Resources = resources;
             return View(bookings);
         }
 
@@ -58,13 +63,12 @@ namespace InternalResourceBookingSystem.Controllers
         // POST: Bookings/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,ResourceId,StartTime,EndTime,BookedBy,purpose")] Booking booking)
+        public async Task<IActionResult> Create([Bind("Id,ResourceId,StartTime,EndTime,BookedBy,Purpose")] Booking booking)
         {
-            if (booking.StartTime >= booking.EndTime)
+            if(booking.EndTime <= booking.StartTime)
             {
                 ModelState.AddModelError("", "End time must be after start time.");
             }
-
 
             if (!await IsValidBooking(booking))
             {
@@ -78,7 +82,13 @@ namespace InternalResourceBookingSystem.Controllers
         }
         private async Task<bool> IsValidBooking(Booking booking)
         {
-            if (!await _bookingRepository.CheckingBookingConflict(booking))
+            if(booking.StartTime < DateTime.Now)
+            {
+                ModelState.AddModelError("", "Start time must be in the future.");
+                return false;
+            }
+
+            if (await _bookingRepository.HasRoomConflict(booking))
             {
                 ModelState.AddModelError("",
                     "This Meeting room is already booked during the requested time. " +
@@ -86,7 +96,7 @@ namespace InternalResourceBookingSystem.Controllers
                 return false;
             }
 
-            if (!await _bookingRepository.CheckingUserBookingConflict(booking))
+            if (await _bookingRepository.HasUserConflict(booking))
             {
                 ModelState.AddModelError("",
                     "You already have another booking during this time.");
@@ -118,12 +128,18 @@ namespace InternalResourceBookingSystem.Controllers
         // POST: Bookings/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,ResourceId,StartTime,EndTime,BookedBy,purpose")] Booking booking)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,ResourceId,StartTime,EndTime,BookedBy,Purpose")] Booking booking)
         {
             if (id != booking.Id)
             {
                 return NotFound();
             }
+
+            if(booking.EndTime <= booking.StartTime)
+            {
+                ModelState.AddModelError("", "End time must be after start time.");
+            }
+
             if (!await IsValidBooking(booking))
             {
                 var resources = await _resourceRepository.GetAllAsync();
@@ -158,7 +174,15 @@ namespace InternalResourceBookingSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            await _resourceRepository.DeleteAsync(id);
+            try
+            {
+                await _bookingRepository.DeleteAsync(id);
+                TempData["ShowDeleteToast"] = true;
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", "An error occurred while deleting the booking.");
+            }
             return RedirectToAction(nameof(Index));
         }
 
