@@ -1,29 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using InternalResourceBookingSystem.Models;
+using InternalResourceBookingSystem.Repositories;
+using InternalResourceBookingSystem.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using InternalResourceBookingSystem.Data;
-using InternalResourceBookingSystem.Models;
 
 namespace InternalResourceBookingSystem.Controllers
 {
     public class BookingsController : Controller
     {
-        private readonly IResourceRepository _context;
+        private readonly IBookingRepository _bookingRepository;
 
-        public BookingsController(IResourceRepository context)
+        private readonly IResourceRepository _resourceRepository;
+
+        public BookingsController(IBookingRepository bookingRepository, IResourceRepository resourceRepository)
         {
-            _context = context;
+            _bookingRepository = bookingRepository;
+            _resourceRepository = resourceRepository;
         }
 
         // GET: Bookings
         public async Task<IActionResult> Index()
         {
-            var applicationDbContext = _context.Bookings.Include(b => b.Resource);
-            return View(await applicationDbContext.ToListAsync());
+            var bookings = await _bookingRepository.GetAllAsync();
+            return View(bookings);
         }
 
         // GET: Bookings/Details/5
@@ -34,29 +34,24 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var booking = await _context.Bookings
-                .Include(b => b.Resource)
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var booking = await _bookingRepository.GetByIdAsync(id.Value);
             if (booking == null)
             {
                 return NotFound();
             }
 
+            var resource = await _resourceRepository.GetByIdIncludeBookingAsync(booking.ResourceId.Value);
+            ViewData["ResourceName"] = resource.Name;
+
             return View(booking);
         }
 
         // GET: Bookings/Create
-        public IActionResult Create(int? resourceId)
+        public async Task<IActionResult> Create()
         {
-            if (resourceId.HasValue)
-            {
-                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", resourceId.Value);
-
-            }
-            else
-            {
-                ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name");
-            }
+            var resources = await _resourceRepository.GetAllAsync();
+            
+                ViewData["ResourceId"] = new SelectList(resources, "Id", "Name");
             return View();
         }
 
@@ -70,39 +65,35 @@ namespace InternalResourceBookingSystem.Controllers
                 ModelState.AddModelError("", "End time must be after start time.");
             }
 
-            // Here I am checking if the booking overlaps with any existing bookings for the same meeting room
-            bool bookingConflict = await _context.Bookings.AnyAsync(b =>
-                b.ResourceId == booking.ResourceId &&
-                b.Id != booking.Id &&
-                b.StartTime < booking.EndTime &&
-                booking.StartTime < b.EndTime);
 
-            if (bookingConflict)
+            if (!await IsValidBooking(booking))
+            {
+                var resources = await _resourceRepository.GetAllAsync();
+                ViewData["ResourceId"] = new SelectList(resources, "Id", "Name", booking.ResourceId);
+                return View(booking);
+            }
+
+            await _bookingRepository.AddAsync(booking);
+            return RedirectToAction(nameof(Index));
+        }
+        private async Task<bool> IsValidBooking(Booking booking)
+        {
+            if (!await _bookingRepository.CheckingBookingConflict(booking))
             {
                 ModelState.AddModelError("",
-                    "\"This Meeting room is\r\nalready booked during the requested time. Please choose another\r\nslot or meeting room, or adjust your times.");
+                    "This Meeting room is already booked during the requested time. " +
+                    "Please choose another slot or meeting room, or adjust your times.");
+                return false;
             }
 
-            // Here I am checking if the user has another booking during the same time for a different room
-            bool userBookingConflict = await _context.Bookings.AnyAsync(b =>
-                b.BookedBy == booking.BookedBy &&
-                b.Id != booking.Id &&
-                b.StartTime < booking.EndTime &&
-                booking.StartTime < b.EndTime);
-
-            if (userBookingConflict)
+            if (!await _bookingRepository.CheckingUserBookingConflict(booking))
             {
-                ModelState.AddModelError("", "You already have another booking during this time.");
+                ModelState.AddModelError("",
+                    "You already have another booking during this time.");
+                return false;
             }
 
-            if (ModelState.IsValid)
-            {
-                _context.Add(booking);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", booking.ResourceId);
-            return View(booking);
+            return true;
         }
 
         // GET: Bookings/Edit/5
@@ -113,18 +104,18 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var booking = await _context.Bookings.FindAsync(id);
+            var booking = await _bookingRepository.GetByIdAsync(id.Value);
             if (booking == null)
             {
                 return NotFound();
             }
-            ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", booking.ResourceId);
+
+            var resources = await _resourceRepository.GetAllAsync();
+            ViewData["ResourceId"] = new SelectList(resources, "Id", "Name", booking.ResourceId);
             return View(booking);
         }
 
         // POST: Bookings/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,ResourceId,StartTime,EndTime,BookedBy,purpose")] Booking booking)
@@ -133,29 +124,15 @@ namespace InternalResourceBookingSystem.Controllers
             {
                 return NotFound();
             }
-
-            if (ModelState.IsValid)
+            if (!await IsValidBooking(booking))
             {
-                try
-                {
-                    _context.Update(booking);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!BookingExists(booking.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
+                var resources = await _resourceRepository.GetAllAsync();
+                ViewData["ResourceId"] = new SelectList(resources, "Id", "Name", booking.ResourceId);
+                return View(booking);
             }
-            ViewData["ResourceId"] = new SelectList(_context.Resources, "Id", "Name", booking.ResourceId);
-            return View(booking);
+
+            await _bookingRepository.UpdateAsync(booking);
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Bookings/Delete/5
@@ -166,9 +143,8 @@ namespace InternalResourceBookingSystem.Controllers
                 return NotFound();
             }
 
-            var booking = await _context.Bookings
-                .Include(b => b.Resource)
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var booking = await _bookingRepository.GetByIdAsync(id.Value);
+               
             if (booking == null)
             {
                 return NotFound();
@@ -182,19 +158,9 @@ namespace InternalResourceBookingSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var booking = await _context.Bookings.FindAsync(id);
-            if (booking != null)
-            {
-                _context.Bookings.Remove(booking);
-            }
-
-            await _context.SaveChangesAsync();
+            await _resourceRepository.DeleteAsync(id);
             return RedirectToAction(nameof(Index));
         }
 
-        private bool BookingExists(int id)
-        {
-            return _context.Bookings.Any(e => e.Id == id);
-        }
     }
 }

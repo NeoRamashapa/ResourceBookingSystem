@@ -53,5 +53,9 @@ namespace InternalResourceBookingSystem.Repositories
 
             return resource;
         }
+        public async Task<Booking> GetByIdAsync()
+        {
+            return await _context.Bookings.FirstOrDefaultAsync();
+        }
     }
 }

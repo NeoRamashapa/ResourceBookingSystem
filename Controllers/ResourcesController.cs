@@ -144,8 +144,8 @@ namespace InternalResourceBookingSystem.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
+        { 
             await _resourceRepository.DeleteAsync(id);
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
     }
