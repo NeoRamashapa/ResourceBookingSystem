@@ -9,7 +9,6 @@ A simple web application built with **ASP.NET Core 8 MVC** for managing internal
 - Real-time dashboard showing:
   - Total meeting rooms
   - Today's active bookings
-  - Conflict summary
 - Modal-based UI for resource management
 - Repository pattern with 3-layer architecture (MVC + Repository + EF Core)
 
